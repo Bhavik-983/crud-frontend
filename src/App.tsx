@@ -1,35 +1,79 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Login from './components/Login';
+import AdminDashboard from './components/AdminDashboard';
+import UserDashboard from './components/UserDashboard';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string }> = ({ 
+  children, 
+  requiredRole 
+}) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole && user.role !== requiredRole) {
+    return <Navigate to={user.role === 'ADMIN' ? '/admin' : '/user'} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const AppRoutes: React.FC = () => {
+  const { user } = useAuth();
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Routes>
+      <Route path="/login" element={
+        user ? (
+          <Navigate to={user.role === 'ADMIN' ? '/admin' : '/user'} replace />
+        ) : (
+          <Login />
+        )
+      } />
+      <Route path="/admin" element={
+        <ProtectedRoute requiredRole="ADMIN">
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/user" element={
+        <ProtectedRoute requiredRole="USER">
+          <UserDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/" element={
+        user ? (
+          <Navigate to={user.role === 'ADMIN' ? '/admin' : '/user'} replace />
+        ) : (
+          <Navigate to="/login" replace />
+        )
+      } />
+    </Routes>
+  );
+};
+
+function AppContent() {
+  return (
+    <Router>
+      <AppRoutes />
+    </Router>
+  );
 }
 
-export default App
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+export default App;
